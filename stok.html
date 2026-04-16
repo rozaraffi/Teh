@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TehJumbo.io - Sistem Stok Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; overflow-x: hidden; }
+        .modal-active { display: flex !important; animation: fadeIn 0.3s ease-out; }
+        select { cursor: pointer; -webkit-appearance: none; appearance: none; }
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+        
+        tr { transition: all 0.2s ease; }
+        .toast-enter { transform: translateX(100%); opacity: 0; }
+        .toast-active { transform: translateX(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body>
+
+    <div id="toastContainer" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
+
+    <div class="min-h-screen flex">
+        <aside class="w-64 bg-slate-900 text-slate-300 hidden md:block border-r border-slate-800">
+            <div class="p-6">
+                <div class="flex items-center gap-3 text-white">
+                    <div class="bg-emerald-500 p-2 rounded-lg text-white"><i data-lucide="droplet"></i></div>
+                    <span class="text-xl font-bold tracking-tight">TehJumbo.io</span>
+                </div>
+            </div>
+            <nav class="mt-4 px-4 space-y-1">
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border-l-4 border-emerald-500">
+                    <i data-lucide="package"></i> Manajemen Stok
+                </a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-10 space-y-8 animate-slide-up">
+            <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Inventaris Bahan</h2>
+                    <p class="text-slate-500 text-sm">Validasi input aktif & Fitur Backup Data.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="exportData()" class="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm" title="Export Data">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                    </button>
+                    <label class="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm cursor-pointer" title="Import Data">
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+                    </label>
+                    <button onclick="openModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95">
+                        <i data-lucide="plus" class="w-5 h-5"></i> Input Stok
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Jenis</p>
+                    <h3 id="stat-total" class="text-2xl font-bold text-slate-900">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm border-l-4 border-l-amber-400 hover:shadow-md transition-shadow">
+                    <p class="text-amber-600 text-[10px] font-bold uppercase tracking-widest mb-1">Stok Menipis</p>
+                    <h3 id="stat-menipis" class="text-2xl font-bold text-amber-600">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm border-l-4 border-l-rose-500 hover:shadow-md transition-shadow">
+                    <p class="text-rose-600 text-[10px] font-bold uppercase tracking-widest mb-1">Stok Habis</p>
+                    <h3 id="stat-habis" class="text-2xl font-bold text-rose-600">0</h3>
+                </div>
+                <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white hover:scale-[1.02] transition-transform">
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Valuasi</p>
+                    <h3 id="stat-modal" class="text-2xl font-bold text-emerald-400">Rp 0</h3>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/30 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Cari Nama</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-4 top-3.5 text-slate-400"></i>
+                            <input type="text" id="searchNama" oninput="renderData()" class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Cari...">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Update Terakhir</label>
+                        <input type="date" id="searchTanggal" onchange="renderData()" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm text-slate-600">
+                    </div>
+                    <div class="relative">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Tampilkan</label>
+                        <select id="pageLimit" onchange="renderData()" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-semibold text-slate-700">
+                            <option value="5">5 Baris</option>
+                            <option value="10" selected>10 Baris</option>
+                            <option value="50">50 Baris</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 absolute right-4 bottom-3.5 text-slate-400 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest bg-slate-50/20">
+                                <th class="px-8 py-5">Bahan</th>
+                                <th class="px-8 py-5">Harga Rata-rata</th>
+                                <th class="px-8 py-5">Sisa Stok</th>
+                                <th class="px-8 py-5">Status</th>
+                                <th class="px-8 py-5 text-right">Opsi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody" class="divide-y divide-slate-50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <section class="mt-12 bg-white p-8 rounded-[2.5rem] border border-slate-200">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="activity" class="w-5 h-5"></i></div>
+                        <h4 class="font-bold text-slate-900 text-lg">Aktivitas Stok</h4>
+                    </div>
+                    <button onclick="clearLogs()" class="text-[10px] font-bold text-rose-400 hover:text-rose-600 uppercase tracking-widest transition-colors">Hapus Riwayat</button>
+                </div>
+                <div id="historyLog" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scroll"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="itemModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md hidden items-center justify-center p-4 z-50 transition-all">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl transition-all duration-300 transform">
+            <h3 id="modalTitle" class="text-2xl font-bold text-slate-900 mb-1 tracking-tight">Input Data</h3>
+            <p class="text-slate-500 text-sm mb-6">Pastikan data yang dimasukkan benar.</p>
+            
+            <div id="validationAlert" class="hidden mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-semibold flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span id="validationMsg"></span>
+            </div>
+
+            <input type="hidden" id="editIndex">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Nama Bahan</label>
+                    <input list="bahanList" id="inputNama" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium transition-all" placeholder="Nama bahan...">
+                    <datalist id="bahanList"></datalist>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Harga Beli (Rp)</label>
+                        <input type="text" id="inputHarga" oninput="formatCurrencyInput(this)" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Jumlah Unit</label>
+                        <input type="number" id="inputJumlah" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium" placeholder="0">
+                    </div>
+                </div>
+                <div class="pt-4 space-y-3">
+                    <button onclick="saveItem()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-95">Simpan Data</button>
+                    <button onclick="closeModal()" class="w-full py-3 text-slate-400 font-semibold text-sm hover:text-slate-600 transition-colors">Batalkan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl text-center transform transition-all duration-300">
+            <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="trash-2" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Hapus Bahan?</h3>
+            <p class="text-slate-500 text-sm mb-6">Tindakan ini tidak bisa dibatalkan.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">Batal</button>
+                <button id="confirmDeleteBtn" class="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stockData = JSON.parse(localStorage.getItem('StokEs')) || [];
+        let logData = JSON.parse(localStorage.getItem('StokLog')) || [];
+        let deleteIdx = null;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const color = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-blue-600');
+            const icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-circle' : 'info');
+            
+            toast.className = `${color} text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 pointer-events-auto toast-enter`;
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i><span class="font-bold text-sm">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            setTimeout(() => toast.classList.add('toast-active'), 10);
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function formatCurrencyInput(input) {
+            let value = input.value.replace(/[^0-9]/g, '');
+            input.value = value ? parseInt(value).toLocaleString('id-ID') : '';
+        }
+
+        function parseCurrency(str) {
+            return parseInt(str.toString().replace(/\./g, '')) || 0;
+        }
+
+        function addLog(title, detail, type) {
+            const now = new Date();
+            const ts = `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}`;
+            logData.unshift({ title, detail, time: ts, type });
+            if(logData.length > 50) logData.pop();
+            localStorage.setItem('StokLog', JSON.stringify(logData));
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('historyLog');
+            container.innerHTML = logData.length === 0 ? `<p class="text-slate-400 text-xs italic">Belum ada riwayat aktivitas.</p>` : '';
+            logData.forEach((log, index) => {
+                let color = log.type === 'stock' ? 'text-emerald-500' : (log.type === 'edit' ? 'text-blue-500' : 'text-rose-500');
+                container.innerHTML += `
+                    <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex gap-4 items-start animate-slide-up" style="animation-delay: ${index * 0.05}s">
+                        <div class="mt-1 ${color}"><i data-lucide="info" class="w-4 h-4"></i></div>
+                        <div class="flex-1">
+                            <div class="flex justify-between"><h5 class="text-xs font-bold text-slate-700">${log.title}</h5><span class="text-[9px] text-slate-400">${log.time}</span></div>
+                            <p class="text-[11px] text-slate-500 mt-0.5">${log.detail}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        function renderData() {
+            const tableBody = document.getElementById('stockTableBody');
+            const search = document.getElementById('searchNama').value.toLowerCase();
+            const dateF = document.getElementById('searchTanggal').value;
+            const limit = parseInt(document.getElementById('pageLimit').value);
+            
+            tableBody.innerHTML = '';
+            let filtered = stockData.filter(i => {
+                const matchN = i.nama.toLowerCase().includes(search);
+                const matchT = !dateF || i.lastUpdate === dateF;
+                return matchN && matchT;
+            });
+
+            let totalValuasi = 0, tMenipis = 0, tHabis = 0;
+
+            filtered.slice(0, limit).forEach((item, index) => {
+                totalValuasi += (item.harga * item.stok);
+                const persen = Math.round((item.stok / item.kapasitas) * 100) || 0;
+                let sClass = 'bg-emerald-50 text-emerald-600', sLabel = 'Aman';
+                if(item.stok <= 0) { sClass = 'bg-rose-50 text-rose-600'; sLabel = 'Habis'; tHabis++; }
+                else if(persen < 40) { sClass = 'bg-amber-50 text-amber-600'; sLabel = 'Menipis'; tMenipis++; }
+
+                const row = document.createElement('tr');
+                row.className = "group hover:bg-slate-50/50 transition-colors opacity-0";
+                row.style.animation = `fadeIn 0.3s ease-out forwards ${index * 0.05}s`;
+                row.innerHTML = `
+                    <td class="px-8 py-5"><span class="block font-bold text-slate-800">${item.nama}</span><span class="text-[9px] text-slate-400 uppercase font-bold">${item.lastUpdate || ''}</span></td>
+                    <td class="px-8 py-5 text-slate-500 text-sm font-semibold">Rp ${Math.round(item.harga).toLocaleString('id-ID')}</td>
+                    <td class="px-8 py-5 font-bold text-slate-700">${item.stok} Unit</td>
+                    <td class="px-8 py-5"><span class="${sClass} px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">${sLabel} (${persen}%)</span></td>
+                    <td class="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="editItem(${stockData.indexOf(item)})" class="p-2 text-slate-400 hover:text-emerald-600 transition-transform hover:scale-110"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                        <button onclick="triggerDelete(${stockData.indexOf(item)})" class="p-2 text-slate-400 hover:text-rose-600 transition-transform hover:scale-110"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            document.getElementById('stat-total').innerText = stockData.length;
+            document.getElementById('stat-menipis').innerText = tMenipis;
+            document.getElementById('stat-habis').innerText = tHabis;
+            document.getElementById('stat-modal').innerText = "Rp " + Math.round(totalValuasi).toLocaleString('id-ID');
+            updateDatalist();
+            lucide.createIcons();
+        }
+
+        function saveItem() {
+            const idx = document.getElementById('editIndex').value;
+            const nama = document.getElementById('inputNama').value.trim();
+            const harga = parseCurrency(document.getElementById('inputHarga').value);
+            const jumlah = parseInt(document.getElementById('inputJumlah').value);
+            const alertBox = document.getElementById('validationAlert');
+            const now = new Date().toISOString().split('T')[0];
+
+            if(!nama) { showVal("Nama bahan tidak boleh kosong!"); return; }
+            if(isNaN(harga) || harga <= 0) { showVal("Harga beli harus lebih dari 0!"); return; }
+            if(isNaN(jumlah) || jumlah <= 0) { showVal("Jumlah unit harus lebih dari 0!"); return; }
+            alertBox.classList.add('hidden');
+
+            const existIdx = stockData.findIndex(i => i.nama.toLowerCase() === nama.toLowerCase());
+
+            if (idx > -1) {
+                // Mode Edit Master Data
+                const old = stockData[idx];
+                addLog('Koreksi Master', `Data ${old.nama} diperbarui menjadi: ${nama} | Harga: Rp ${harga.toLocaleString('id-ID')} | Stok: ${jumlah} unit.`, 'edit');
+                stockData[idx] = { nama, harga, stok: jumlah, kapasitas: jumlah, lastUpdate: now };
+                showToast("Data master diperbarui!", "info");
+            } else if (existIdx > -1) {
+                // Mode Tambah Stok Bahan Eksis
+                const item = stockData[existIdx];
+                const totalBaru = item.stok + jumlah;
+                const rerata = ((item.stok * item.harga) + (jumlah * harga)) / totalBaru;
+                
+                // Tampilan rincian sesuai permintaan user
+                addLog('Stok Masuk', `${nama}: +${jumlah} unit masuk @Rp ${harga.toLocaleString('id-ID')}. Total stok sekarang: ${totalBaru} unit.`, 'stock');
+                
+                stockData[existIdx] = { ...item, harga: rerata, stok: totalBaru, kapasitas: totalBaru, lastUpdate: now };
+                showToast(`Stok ${nama} bertambah!`);
+            } else {
+                // Mode Bahan Baru
+                addLog('Bahan Baru', `${nama} didaftarkan pertama kali: ${jumlah} unit @Rp ${harga.toLocaleString('id-ID')}.`, 'stock');
+                stockData.push({ nama, harga, stok: jumlah, kapasitas: jumlah, lastUpdate: now });
+                showToast("Bahan baru tersimpan!");
+            }
+
+            localStorage.setItem('StokEs', JSON.stringify(stockData));
+            closeModal();
+            renderData();
+        }
+
+        function showVal(msg) {
+            const box = document.getElementById('validationAlert');
+            document.getElementById('validationMsg').innerText = msg;
+            box.classList.remove('hidden');
+            box.classList.add('animate-bounce');
+            setTimeout(() => box.classList.remove('animate-bounce'), 1000);
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify({ stock: stockData, logs: logData });
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `Backup_Stok_TehJumbo_${new Date().toISOString().split('T')[0]}.json`;
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            showToast("Backup data diunduh!", "info");
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(imported.stock) {
+                        if(confirm("Impor data akan menimpa data saat ini. Lanjutkan?")) {
+                            stockData = imported.stock;
+                            logData = imported.logs || [];
+                            localStorage.setItem('StokEs', JSON.stringify(stockData));
+                            localStorage.setItem('StokLog', JSON.stringify(logData));
+                            renderData();
+                            renderLogs();
+                            showToast("Data dipulihkan!");
+                        }
+                    }
+                } catch (err) { showToast("File tidak valid!", "error"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function openModal(idx = -1) {
+            const modal = document.getElementById('itemModal');
+            const content = modal.querySelector('div');
+            modal.classList.add('modal-active');
+            content.classList.add('scale-100');
+            content.classList.remove('scale-95');
+            
+            document.getElementById('validationAlert').classList.add('hidden');
+            document.getElementById('editIndex').value = idx;
+            if(idx > -1) {
+                const i = stockData[idx];
+                document.getElementById('modalTitle').innerText = "Edit Master Data";
+                document.getElementById('inputNama').value = i.nama;
+                document.getElementById('inputHarga').value = Math.round(i.harga).toLocaleString('id-ID');
+                document.getElementById('inputJumlah').value = i.stok;
+            } else {
+                document.getElementById('modalTitle').innerText = "Input Stok";
+                document.getElementById('inputNama').value = '';
+                document.getElementById('inputHarga').value = '';
+                document.getElementById('inputJumlah').value = '';
+            }
+        }
+
+        function closeModal() { 
+            const modal = document.getElementById('itemModal');
+            const content = modal.querySelector('div');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.remove('modal-active'), 200);
+        }
+
+        function triggerDelete(idx) { 
+            deleteIdx = idx; 
+            document.getElementById('deleteModal').classList.add('modal-active');
+        }
+
+        function closeDeleteModal() { 
+            document.getElementById('deleteModal').classList.remove('modal-active'); 
+        }
+
+        document.getElementById('confirmDeleteBtn').onclick = () => {
+            if(deleteIdx !== null) {
+                const nama = stockData[deleteIdx].nama;
+                addLog('Hapus Data', `Bahan "${nama}" telah dihapus secara permanen dari sistem.`, 'delete');
+                stockData.splice(deleteIdx, 1);
+                localStorage.setItem('StokEs', JSON.stringify(stockData));
+                renderData();
+                closeDeleteModal();
+                showToast(`${nama} dihapus.`, "error");
+            }
+        };
+
+        function clearLogs() { 
+            if(confirm("Bersihkan semua riwayat?")) { 
+                logData = []; 
+                localStorage.setItem('StokLog', JSON.stringify(logData)); 
+                renderLogs(); 
+                showToast("Riwayat dibersihkan.", "info");
+            } 
+        }
+        
+        function updateDatalist() { 
+            document.getElementById('bahanList').innerHTML = stockData.map(i => `<option value="${i.nama}">`).join(''); 
+        }
+        
+        function editItem(idx) { openModal(idx); }
+
+        window.onload = () => { 
+            renderData(); 
+            renderLogs(); 
+        };
+    </script>
+</body>
+</html>

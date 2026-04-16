@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TehJumbo.io - Katalog & Stok Realtime</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; overflow-x: hidden; }
+        .modal-active { display: flex !important; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { 0% { opacity: 0; transform: scale(0.9) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .toast-enter { animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .product-card { transition: all 0.3s ease; }
+        .product-card:hover { transform: translateY(-5px); }
+    </style>
+</head>
+<body>
+
+    <div id="toastContainer" class="fixed top-6 right-6 z-[100] space-y-3 pointer-events-none"></div>
+
+    <div class="min-h-screen flex">
+        <aside class="w-72 bg-slate-900 text-slate-300 hidden md:block border-r border-slate-800">
+            <div class="p-8">
+                <div class="flex items-center gap-3 text-white">
+                    <div class="bg-emerald-500 p-2.5 rounded-2xl text-white shadow-lg"><i data-lucide="droplet"></i></div>
+                    <span class="text-2xl font-extrabold tracking-tighter text-emerald-500">TehJumbo.io</span>
+                </div>
+            </div>
+            <nav class="mt-6 px-6 space-y-2">
+                <a href="stok.html" class="flex items-center gap-3 px-5 py-4 hover:bg-slate-800 hover:text-white rounded-2xl transition-all"><i data-lucide="package"></i> Stok Bahan</a>
+                <a href="#" class="flex items-center gap-3 px-5 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20"><i data-lucide="book-open"></i> Katalog Menu</a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-12 space-y-10">
+            <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                <div>
+                    <h2 class="text-5xl font-extrabold text-slate-900 tracking-tighter italic">MASTER <span class="text-emerald-600">KATALOG</span></h2>
+                    <p class="text-slate-500 font-medium mt-2">Pantau ketersediaan porsi berdasarkan stok bahan secara otomatis.</p>
+                </div>
+                
+                <div class="flex flex-wrap gap-3">
+                    <div class="flex gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                        <button onclick="exportCatalog()" class="p-3 hover:bg-emerald-50 text-emerald-600 rounded-xl transition-all" title="Export Data"><i data-lucide="download" class="w-5 h-5"></i></button>
+                        <label class="p-3 hover:bg-blue-50 text-blue-600 rounded-xl transition-all cursor-pointer" title="Import Data">
+                            <i data-lucide="upload" class="w-5 h-5"></i>
+                            <input type="file" id="importFile" class="hidden" onchange="importCatalog(event)">
+                        </label>
+                        <button onclick="openResetModal()" class="p-3 hover:bg-rose-50 text-rose-600 rounded-xl transition-all" title="Reset Data"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                    </div>
+
+                    <button onclick="openHeaderModal()" class="bg-white border-2 border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm">
+                        <i data-lucide="settings-2" class="w-5 h-5"></i> Judul
+                    </button>
+                    <button onclick="openCatalogModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl transition-all active:scale-95">
+                        <i data-lucide="plus-circle"></i> Tambah Menu
+                    </button>
+                </div>
+            </header>
+
+            <section class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 relative group">
+                    <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors w-5 h-5"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Cari nama menu..." class="w-full pl-14 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-bold text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all shadow-sm">
+                </div>
+                <div class="md:w-64 relative">
+                    <i data-lucide="filter" class="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                    <select id="filterKategori" onchange="handleSearch()" class="w-full pl-12 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-bold text-slate-700 outline-none appearance-none focus:border-emerald-500 shadow-sm cursor-pointer">
+                        <option value="Semua">Semua Kategori</option>
+                    </select>
+                </div>
+            </section>
+
+            <div id="catalogContainer" class="space-y-20 pb-20"></div>
+        </main>
+    </div>
+
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-[3rem] w-full max-w-sm p-10 shadow-2xl animate-pop text-center">
+            <div class="bg-rose-100 text-rose-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner"><i data-lucide="alert-triangle" class="w-10 h-10"></i></div>
+            <h3 class="text-2xl font-extrabold text-slate-900 mb-2">Hapus Semua Data?</h3>
+            <p class="text-slate-500 font-medium text-sm">Tindakan ini akan menghapus seluruh katalog Anda.</p>
+            <div class="flex flex-col gap-3 mt-8">
+                <button onclick="executeReset()" class="w-full py-4 bg-rose-600 text-white font-bold rounded-2xl shadow-lg shadow-rose-200">Ya, Hapus Permanen</button>
+                <button onclick="closeResetModal()" class="w-full py-4 text-slate-400 font-bold">Batalkan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="catalogModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-[3rem] w-full max-w-2xl p-8 md:p-10 shadow-2xl animate-pop overflow-y-auto max-h-[95vh] custom-scroll">
+            <div class="flex justify-between items-center mb-8">
+                <h3 id="modalTitle" class="text-3xl font-extrabold text-slate-900 tracking-tight">Detail Produk</h3>
+                <button onclick="closeCatalogModal()" class="p-3 bg-slate-100 rounded-full hover:bg-rose-100 hover:text-rose-500"><i data-lucide="x"></i></button>
+            </div>
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-400 uppercase mb-2 ml-1">Nama Produk</label>
+                        <input type="text" id="prodNama" class="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-400 uppercase mb-2 ml-1">Kategori</label>
+                        <div class="flex gap-2">
+                            <select id="prodKategori" class="flex-1 px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold"></select>
+                            <button onclick="openCategoryManager()" class="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"><i data-lucide="layout-grid"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-400 uppercase mb-2 ml-1">Harga Jual</label>
+                        <div class="relative">
+                            <span class="absolute left-6 top-1/2 -translate-y-1/2 font-bold text-emerald-600">Rp</span>
+                            <input type="text" id="prodHargaJual" oninput="handlePriceInput(this)" class="w-full pl-14 pr-6 py-4 bg-emerald-50 border border-emerald-100 rounded-2xl font-extrabold text-emerald-700 text-xl" placeholder="0">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-400 uppercase mb-2 ml-1">Label Promo</label>
+                        <input type="text" id="prodHighlightText" placeholder="Contoh: BEST SELLER" class="w-full px-6 py-4 bg-amber-50 border border-amber-100 rounded-2xl font-bold text-amber-700 outline-none">
+                    </div>
+                </div>
+                <div class="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest">Resep & Takaran</h4>
+                        <button onclick="addRecipeRow()" class="text-xs font-bold text-white bg-slate-900 px-4 py-2 rounded-xl">+ Bahan</button>
+                    </div>
+                    <div id="recipeContainer" class="space-y-3"></div>
+                    <div class="mt-8 pt-6 border-t border-dashed flex justify-between items-center">
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase">HPP Modal</p><p id="totalHppModal" class="text-xl font-bold">Rp 0</p></div>
+                        <div class="text-right"><p class="text-[10px] font-bold text-slate-400 uppercase">Laba / Cup</p><p id="profitPreview" class="text-4xl font-black text-emerald-600 tracking-tighter">Rp 0</p></div>
+                    </div>
+                </div>
+                <button onclick="saveProduct()" class="w-full py-5 bg-emerald-600 text-white font-extrabold rounded-2xl shadow-xl hover:bg-emerald-700 transition-all">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="categoryModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden items-center justify-center p-4 z-[70]">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-pop">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black text-slate-900">Kelola Kategori</h3>
+                <button onclick="closeCategoryManager()" class="p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
+            </div>
+            <div class="mb-6"><div class="flex gap-2"><input type="text" id="newCategoryInput" placeholder="Nama kategori baru..." class="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none"><button onclick="addNewCategory()" class="bg-emerald-500 text-white px-6 rounded-2xl font-bold"><i data-lucide="plus"></i></button></div></div>
+            <div id="categoryListContainer" class="space-y-2 max-h-60 overflow-y-auto custom-scroll pr-2"></div>
+        </div>
+    </div>
+
+    <div id="headerModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-10 shadow-2xl animate-pop text-center">
+            <h3 class="text-2xl font-extrabold text-slate-900 mb-2">Nama Area Highlight</h3>
+            <input type="text" id="inputHighlightTitle" class="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-center font-bold text-xl mb-6">
+            <div class="flex gap-3"><button onclick="closeHeaderModal()" class="flex-1 py-4 text-slate-400 font-bold">Batal</button><button onclick="saveHighlightTitle()" class="flex-1 py-4 bg-slate-900 text-white font-bold rounded-2xl">Simpan</button></div>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[80]">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-10 shadow-2xl animate-pop text-center">
+            <div class="bg-rose-100 text-rose-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="trash-2" class="w-10 h-10"></i></div>
+            <h3 class="text-2xl font-extrabold text-slate-900 mb-2">Hapus Menu?</h3>
+            <div class="flex gap-3 mt-8"><button onclick="closeDeleteModal()" class="flex-1 py-4 text-slate-400 font-bold">Batal</button><button id="confirmDeleteBtn" class="flex-1 py-4 bg-rose-600 text-white font-bold rounded-2xl">Ya, Hapus</button></div>
+        </div>
+    </div>
+
+    <script>
+        let catalogData = JSON.parse(localStorage.getItem('KatalogEs')) || [];
+        let stockData = JSON.parse(localStorage.getItem('StokEs')) || [];
+        let categories = JSON.parse(localStorage.getItem('KategoriEs')) || ['Tea Series', 'Milk Series', 'Coffee Series'];
+        let highlightTitle = localStorage.getItem('HighlightSectionTitle') || '🔥 PROMO UNGGULAN';
+        let editingId = null;
+
+        // --- CORE FUNCTIONS ---
+        const formatIDR = (num) => "Rp " + Math.round(num).toLocaleString('id-ID');
+        const formatDot = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        const parseDot = (str) => parseFloat(str.toString().replace(/\./g, '')) || 0;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bg = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
+            toast.className = `toast-enter flex items-center gap-4 px-6 py-4 ${bg} text-white rounded-[1.5rem] shadow-2xl font-bold text-sm pointer-events-auto`;
+            toast.innerHTML = `<i data-lucide="bell"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            lucide.createIcons();
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('filterKategori').value;
+            renderCatalog(query, categoryFilter);
+        }
+
+        function updateFilterDropdown() {
+            const filter = document.getElementById('filterKategori');
+            const currentVal = filter.value;
+            filter.innerHTML = '<option value="Semua">Semua Kategori</option>' + 
+                categories.map(c => `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
+        }
+
+        function openResetModal() { document.getElementById('resetModal').classList.add('modal-active'); }
+        function closeResetModal() { document.getElementById('resetModal').classList.remove('modal-active'); }
+        function executeReset() {
+            localStorage.removeItem('KatalogEs');
+            localStorage.removeItem('KategoriEs');
+            localStorage.removeItem('HighlightSectionTitle');
+            location.reload();
+        }
+
+        function exportCatalog() {
+            const fullData = { catalog: catalogData, categories, highlightTitle, exportDate: new Date().toLocaleString() };
+            const dataStr = JSON.stringify(fullData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const link = document.createElement('a');
+            link.setAttribute('href', dataUri);
+            link.setAttribute('download', `Backup_Katalog_${new Date().toISOString().split('T')[0]}.json`);
+            link.click();
+            showToast("Backup berhasil!");
+        }
+
+        function importCatalog(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    catalogData = imported.catalog || [];
+                    categories = imported.categories || [];
+                    highlightTitle = imported.highlightTitle || '🔥 PROMO UNGGULAN';
+                    localStorage.setItem('KatalogEs', JSON.stringify(catalogData));
+                    localStorage.setItem('KategoriEs', JSON.stringify(categories));
+                    localStorage.setItem('HighlightSectionTitle', highlightTitle);
+                    renderCatalog();
+                    updateFilterDropdown();
+                    showToast("Data dipulihkan!");
+                } catch (err) { showToast("Gagal baca file!", "error"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function handlePriceInput(el) { el.value = formatDot(el.value.replace(/\D/g, "")); calculateHPP(); }
+
+        function calculateHPP() {
+            let total = 0;
+            const names = document.querySelectorAll('.recipe-name');
+            const qties = document.querySelectorAll('.recipe-qty');
+            names.forEach((n, i) => {
+                const s = stockData.find(x => x.nama === n.value);
+                const q = parseFloat(qties[i].value || 0);
+                if(s) total += (s.harga * q);
+            });
+            const jual = parseDot(document.getElementById('prodHargaJual').value);
+            document.getElementById('totalHppModal').innerText = formatIDR(total);
+            document.getElementById('profitPreview').innerText = formatIDR(jual - total);
+            return { total, jual };
+        }
+
+        function openCatalogModal(id = null) {
+            document.getElementById('catalogModal').classList.add('modal-active');
+            editingId = id;
+            syncFormCategories();
+            if(id) {
+                const p = catalogData.find(x => String(x.id) === String(id));
+                if(p) {
+                    document.getElementById('prodNama').value = p.nama;
+                    document.getElementById('prodKategori').value = p.kategori;
+                    document.getElementById('prodHargaJual').value = formatDot(p.hargaJual);
+                    document.getElementById('prodHighlightText').value = p.highlightText || '';
+                    document.getElementById('recipeContainer').innerHTML = '';
+                    p.resep.forEach(r => addRecipeRow(r.nama, r.qty));
+                    document.getElementById('modalTitle').innerText = "Edit Produk";
+                }
+            } else {
+                document.getElementById('prodNama').value = '';
+                document.getElementById('prodHargaJual').value = '';
+                document.getElementById('prodHighlightText').value = '';
+                document.getElementById('recipeContainer').innerHTML = '';
+                addRecipeRow();
+                document.getElementById('modalTitle').innerText = "Tambah Menu Baru";
+            }
+            calculateHPP();
+        }
+
+        function closeCatalogModal() { document.getElementById('catalogModal').classList.remove('modal-active'); }
+
+        function addRecipeRow(name = '', qty = 1) {
+            const div = document.createElement('div');
+            div.className = "p-4 bg-white border border-slate-100 rounded-2xl flex flex-col gap-2 animate-pop";
+            div.innerHTML = `
+                <div class="flex gap-3 items-center">
+                    <select onchange="calculateHPP()" class="recipe-name flex-1 font-bold text-slate-700 bg-transparent outline-none">
+                        <option value="">-- Pilih Bahan --</option>
+                        ${stockData.map(s => `<option value="${s.nama}" ${s.nama === name ? 'selected' : ''}>${s.nama}</option>`).join('')}
+                    </select>
+                    <input type="number" step="0.1" class="recipe-qty w-12 text-center font-black outline-none bg-slate-100 rounded-lg p-1" value="${qty}" oninput="calculateHPP()">
+                    <button onclick="this.parentElement.parentElement.remove(); calculateHPP();" class="text-rose-400 p-1"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                </div>
+            `;
+            document.getElementById('recipeContainer').appendChild(div);
+            lucide.createIcons();
+            calculateHPP();
+        }
+
+        function openCategoryManager() { document.getElementById('categoryModal').classList.add('modal-active'); renderCategoryList(); }
+        function closeCategoryManager() { document.getElementById('categoryModal').classList.remove('modal-active'); syncFormCategories(); updateFilterDropdown(); }
+        
+        function renderCategoryList() {
+            const container = document.getElementById('categoryListContainer');
+            container.innerHTML = categories.map(cat => `<div class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl mb-2"><span class="font-bold text-slate-700">${cat}</span><button onclick="deleteCategory('${cat}')" class="text-rose-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('');
+            lucide.createIcons();
+        }
+
+        function addNewCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const val = input.value.trim();
+            if(!val || categories.includes(val)) return;
+            categories.push(val);
+            localStorage.setItem('KategoriEs', JSON.stringify(categories));
+            input.value = '';
+            renderCategoryList();
+        }
+
+        function deleteCategory(catName) {
+            if(catalogData.some(p => p.kategori === catName)) return showToast("Gagal! Kategori masih dipakai.", "error");
+            categories = categories.filter(c => c !== catName);
+            localStorage.setItem('KategoriEs', JSON.stringify(categories));
+            renderCategoryList();
+        }
+
+        function syncFormCategories() { document.getElementById('prodKategori').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join(''); }
+
+        function saveProduct() {
+            const nama = document.getElementById('prodNama').value;
+            const kategori = document.getElementById('prodKategori').value;
+            const hText = document.getElementById('prodHighlightText').value;
+            const { total, jual } = calculateHPP();
+            const resep = [];
+            document.querySelectorAll('.recipe-name').forEach((n, i) => { if(n.value) resep.push({ nama: n.value, qty: parseFloat(document.querySelectorAll('.recipe-qty')[i].value) }); });
+            if(!nama || resep.length === 0) return showToast("Nama & Resep wajib diisi!", "error");
+            
+            if(editingId) {
+                const idx = catalogData.findIndex(x => String(x.id) === String(editingId));
+                catalogData[idx] = { ...catalogData[idx], nama, kategori, resep, hpp: total, hargaJual: jual, highlightText: hText };
+            } else {
+                catalogData.push({ id: Date.now(), nama, kategori, resep, hpp: total, hargaJual: jual, highlightText: hText, isHighlight: false });
+            }
+            localStorage.setItem('KatalogEs', JSON.stringify(catalogData));
+            closeCatalogModal();
+            renderCatalog();
+            showToast("Produk disimpan!");
+        }
+
+        function toggleHighlight(id) {
+            const idx = catalogData.findIndex(x => String(x.id) === String(id));
+            if(idx !== -1) {
+                catalogData[idx].isHighlight = !catalogData[idx].isHighlight;
+                localStorage.setItem('KatalogEs', JSON.stringify(catalogData));
+                renderCatalog();
+            }
+        }
+
+        function openDeleteModal(id) {
+            const modal = document.getElementById('deleteModal');
+            const btn = document.getElementById('confirmDeleteBtn');
+            modal.classList.add('modal-active');
+            btn.onclick = () => {
+                catalogData = catalogData.filter(x => String(x.id) !== String(id));
+                localStorage.setItem('KatalogEs', JSON.stringify(catalogData));
+                modal.classList.remove('modal-active');
+                renderCatalog();
+                showToast("Dihapus", "error");
+            };
+        }
+        function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('modal-active'); }
+        function openHeaderModal() { document.getElementById('headerModal').classList.add('modal-active'); document.getElementById('inputHighlightTitle').value = highlightTitle; }
+        function closeHeaderModal() { document.getElementById('headerModal').classList.remove('modal-active'); }
+        function saveHighlightTitle() {
+            highlightTitle = document.getElementById('inputHighlightTitle').value || 'HIGHLIGHT';
+            localStorage.setItem('HighlightSectionTitle', highlightTitle);
+            closeHeaderModal();
+            renderCatalog();
+        }
+
+        // --- RENDER KATALOG DENGAN STOK REALTIME ---
+        function renderCatalog(searchQuery = '', filterCat = 'Semua') {
+            const container = document.getElementById('catalogContainer');
+            container.innerHTML = '';
+            
+            let filtered = catalogData.filter(p => {
+                const matchSearch = p.nama.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchCat = filterCat === 'Semua' || p.kategori === filterCat;
+                return matchSearch && matchCat;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-20"><div class="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><i data-lucide="search-x" class="w-10 h-10"></i></div><p class="font-bold text-slate-400">Menu tidak ditemukan...</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            const highlights = filtered.filter(p => p.isHighlight);
+            if(highlights.length > 0) {
+                const section = document.createElement('div');
+                section.innerHTML = `<div class="flex items-center gap-6 mb-10"><div class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-10 py-4 rounded-[2rem] text-lg font-black italic shadow-xl shadow-orange-200 animate-pulse">${highlightTitle}</div><div class="h-1 flex-1 bg-amber-100 rounded-full"></div></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">${highlights.map(p => generateProductCard(p, true)).join('')}</div>`;
+                container.appendChild(section);
+            }
+            
+            categories.forEach(cat => {
+                const items = filtered.filter(p => p.kategori === cat && !p.isHighlight);
+                if(items.length === 0) return;
+                const section = document.createElement('div');
+                section.innerHTML = `<div class="flex items-center gap-6 mb-10"><h3 class="bg-slate-900 text-white px-8 py-3 rounded-2xl text-sm font-black uppercase tracking-widest">${cat}</h3><div class="h-px flex-1 bg-slate-200"></div></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">${items.map(p => generateProductCard(p, false)).join('')}</div>`;
+                container.appendChild(section);
+            });
+            lucide.createIcons();
+        }
+
+        function generateProductCard(p, isH) {
+            const profit = p.hargaJual - p.hpp;
+
+            // --- LOGIKA HITUNG STOK PORSI ---
+            let sisaPorsi = Infinity;
+            p.resep.forEach(item => {
+                const bahan = stockData.find(s => s.nama === item.nama);
+                if(bahan) {
+                    const kemampuan = Math.floor(bahan.stok / item.qty);
+                    if(kemampuan < sisaPorsi) sisaPorsi = kemampuan;
+                } else {
+                    sisaPorsi = 0;
+                }
+            });
+            if(sisaPorsi === Infinity) sisaPorsi = 0;
+            const stokColor = sisaPorsi <= 5 ? 'text-rose-500 bg-rose-50 border-rose-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100';
+
+            return `
+                <div class="product-card bg-white rounded-[3.5rem] border-2 ${isH ? 'border-amber-400 shadow-orange-100 shadow-2xl ring-8 ring-amber-50' : 'border-slate-100 shadow-sm'} p-10 relative animate-pop">
+                    ${p.isHighlight ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-black px-6 py-2 rounded-full z-10">${p.highlightText || 'BEST'}</div>` : ''}
+                    
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="${isH ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'} p-5 rounded-[2rem]"><i data-lucide="cup-soda" class="w-8 h-8"></i></div>
+                        
+                        <div class="flex flex-col items-end gap-2">
+                            <button onclick="toggleHighlight(${p.id})"><i data-lucide="star" class="w-7 h-7 ${p.isHighlight ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}"></i></button>
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 ${stokColor} animate-pulse">
+                                <i data-lucide="package" class="w-3 h-3"></i>
+                                <span class="text-[11px] font-black">${sisaPorsi} <span class="opacity-60">Porsi</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 class="text-3xl font-extrabold text-slate-900 truncate">${p.nama}</h4>
+                    <p class="text-lg font-bold text-emerald-600 mb-8">${formatIDR(p.hargaJual)}</p>
+                    <div class="space-y-3 mb-10 bg-slate-50 p-6 rounded-[2.5rem]">${p.resep.map(r => `<div class="flex justify-between text-xs font-bold text-slate-600 italic"><span>${r.nama}</span><span>${r.qty}x</span></div>`).join('')}</div>
+                    <div class="flex items-center justify-between border-t pt-8">
+                        <div><p class="text-[9px] font-bold text-slate-400 uppercase">Laba</p><p class="text-2xl font-black text-slate-900">${formatIDR(profit)}</p></div>
+                        <div class="flex gap-2 bg-slate-100 p-2 rounded-2xl">
+                            <button onclick="openCatalogModal(${p.id})" class="p-2 hover:text-blue-500"><i data-lucide="pencil"></i></button>
+                            <button onclick="openDeleteModal(${p.id})" class="p-2 hover:text-rose-500"><i data-lucide="trash-2"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        window.onload = () => {
+            renderCatalog();
+            updateFilterDropdown();
+        };
+    </script>
+</body>
+</html>

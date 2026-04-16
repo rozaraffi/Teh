@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TehJumbo.io - Kasir Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .custom-date::-webkit-calendar-picker-indicator {
+            background: transparent; bottom: 0; color: transparent; cursor: pointer;
+            height: auto; left: 0; position: absolute; right: 0; top: 0; width: auto;
+        }
+        @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-modal { animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #receiptPrint, #receiptPrint * { visibility: visible; }
+            #receiptPrint { position: absolute; left: 0; top: 0; width: 58mm; display: block !important; }
+            @page { size: 58mm auto; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="successModal" class="fixed inset-0 z-[200] flex items-center justify-center hidden bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center animate-modal">
+            <div id="modalIcon" class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="check-circle" class="w-10 h-10"></i>
+            </div>
+            <h3 id="modalTitle" class="text-xl font-black text-slate-900 mb-1">Berhasil!</h3>
+            <p id="modalDesc" class="text-slate-500 text-sm font-medium mb-6">Data telah diproses dan stok disinkronkan.</p>
+            <button onclick="closeModal()" class="w-full py-3.5 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all shadow-lg">OK, MENGERTI</button>
+        </div>
+    </div>
+
+    <div class="min-h-screen flex">
+        <aside class="w-64 bg-slate-900 text-slate-300 hidden md:block border-r border-slate-800">
+            <div class="p-6 text-white flex items-center gap-3">
+                <div class="bg-emerald-500 p-2 rounded-lg text-white"><i data-lucide="shopping-cart"></i></div>
+                <span class="text-xl font-bold text-emerald-500 tracking-tight">TehJumbo.io</span>
+            </div>
+            <nav class="mt-4 px-4 space-y-1">
+                <a href="katalog.html" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-xl font-semibold"><i data-lucide="book-open"></i> Katalog</a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border-l-4 border-emerald-500"><i data-lucide="monitor"></i> Kasir</a>
+                <a href="stok.html" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-xl font-semibold"><i data-lucide="package"></i> Stok</a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-10 space-y-8 overflow-y-auto">
+            <header class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-900 italic uppercase">TERMINAL <span class="text-emerald-600">KASIR</span></h2>
+                    <p class="text-slate-500 text-sm font-medium">Input pesanan & kelola data hari ini.</p>
+                </div>
+                <div id="clock" class="text-right font-black text-slate-400 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100"></div>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 space-y-5">
+                        <div class="space-y-4">
+                            <input type="date" id="inputTanggal" class="custom-date w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-medium text-slate-600">
+                            <select id="selectProduk" onchange="updateHargaInfo()" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none"></select>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">Rp</span>
+                                    <input type="text" id="hargaDisplay" readonly class="w-full pl-10 pr-4 py-4 bg-slate-100 rounded-2xl font-black text-slate-500 cursor-not-allowed">
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="inputQty" min="1" value="1" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-slate-700">
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button onclick="setMetode('TUNAI')" id="btnTunai" class="metode-btn py-3.5 rounded-2xl border-2 font-black text-xs transition-all tracking-widest">TUNAI</button>
+                                    <button onclick="setMetode('QRIS')" id="btnQRIS" class="metode-btn py-3.5 rounded-2xl border-2 font-black text-xs transition-all tracking-widest">QRIS</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="addToCart()" class="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200 active:scale-[0.98]">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i> TAMBAH PESANAN
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-7 space-y-6">
+                    <div id="cartSection" class="hidden bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl text-white space-y-6">
+                        <div id="cartItems" class="space-y-3 max-h-48 overflow-y-auto pr-2"></div>
+                        <div class="pt-6 border-t border-white/20 flex justify-between items-end">
+                            <div>
+                                <p class="text-emerald-200 text-[10px] font-bold uppercase tracking-widest">Total Bayar</p>
+                                <h3 id="cartTotal" class="text-4xl font-black">Rp 0</h3>
+                            </div>
+                            <button onclick="submitTransaksi()" class="px-10 py-4 bg-white text-emerald-600 font-black rounded-2xl hover:bg-emerald-50 transition-all active:scale-95">BAYAR</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                                <i data-lucide="database" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-tight">Manajemen Data</h4>
+                                <p class="text-[10px] text-slate-400 font-medium">Backup & Sinkronisasi Penjualan</p>
+                            </div>
+                        </div>
+                        <div class="flex bg-slate-100 p-1 rounded-xl">
+                            <button onclick="exportData()" class="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 rounded-lg font-bold shadow-sm hover:text-emerald-600 transition-all text-[11px]">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Export
+                            </button>
+                            <label class="flex items-center gap-2 px-4 py-2 text-slate-500 rounded-lg font-bold hover:text-emerald-600 cursor-pointer transition-all text-[11px]">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i> Import
+                                <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                            <h4 class="font-bold text-slate-900 text-xs tracking-widest uppercase flex items-center gap-2">
+                                <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Riwayat Hari Ini
+                            </h4>
+                            <button onclick="clearHistory()" class="text-rose-400 text-[10px] font-bold hover:text-rose-600 uppercase tracking-tighter">Hapus Semua</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <tbody id="transTableBody" class="divide-y divide-slate-50"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Tunai</p>
+                            <h4 id="summaryTunai" class="text-lg font-black text-emerald-600">Rp 0</h4>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Total QRIS</p>
+                            <h4 id="summaryQRIS" class="text-lg font-black text-blue-600">Rp 0</h4>
+                        </div>
+                        <div class="bg-slate-900 p-6 rounded-3xl shadow-xl shadow-slate-200">
+                            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Grand Total</p>
+                            <h4 id="summaryTotal" class="text-lg font-black text-white">Rp 0</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="receiptPrint" class="hidden bg-white text-black p-4" style="font-family: 'Courier New', monospace;">
+        <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:10px; margin-bottom:10px;">
+            <p style="font-size:18px; font-weight:bold; margin:0;">TEH JUMBO</p>
+            <p style="font-size:10px; margin:2px 0;">Madiun, Jawa Timur</p>
+            <p style="font-size:9px;" id="receiptFullTime"></p>
+        </div>
+        <div id="receiptItems" style="font-size:10px; margin-bottom:8px;"></div>
+        <div style="border-top:1px dashed #000; padding-top:5px; font-size:10px;">
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:5px;">
+                <span>TOTAL:</span><span id="receiptTotal"></span>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:15px; font-size:9px; border-top:1px dashed #000; padding-top:5px;">
+            <p>Terima Kasih</p>
+            <p>IG: @tehjumbo.madiun</p>
+        </div>
+    </div>
+
+    <script>
+        let catalogData = JSON.parse(localStorage.getItem('KatalogEs')) || [];
+        let stockData = JSON.parse(localStorage.getItem('StokEs')) || [];
+        let transaksiHistory = JSON.parse(localStorage.getItem('TransaksiTeh')) || [];
+        let cart = [];
+        let selectedMetode = 'TUNAI';
+
+        window.onload = () => {
+            document.getElementById('inputTanggal').valueAsDate = new Date();
+            updateClock(); setInterval(updateClock, 1000);
+            populateMenuFromCatalog();
+            renderTransactions();
+            setMetode('TUNAI');
+            lucide.createIcons();
+        };
+
+        function updateClock() { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }
+
+        function setMetode(m) {
+            selectedMetode = m;
+            document.querySelectorAll('.metode-btn').forEach(b => b.className = 'metode-btn py-3.5 rounded-2xl border-2 font-black text-xs border-slate-100 text-slate-400');
+            const active = m === 'TUNAI' ? 'btnTunai' : 'btnQRIS';
+            const color = m === 'TUNAI' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-blue-500 text-blue-600 bg-blue-50';
+            document.getElementById(active).className = `metode-btn py-3.5 rounded-2xl border-2 font-black text-xs ${color}`;
+        }
+
+        function populateMenuFromCatalog() {
+            const select = document.getElementById('selectProduk');
+            select.innerHTML = '<option value="">Pilih Menu...</option>';
+            catalogData.forEach(item => {
+                const sisa = getSisaPorsi(item.resep);
+                select.innerHTML += `<option value="${item.id}" ${sisa <= 0 ? 'disabled' : ''}>${item.nama} (${sisa} Cup)</option>`;
+            });
+        }
+
+        function getSisaPorsi(resep) {
+            let sisa = Infinity;
+            resep.forEach(r => {
+                const bahan = stockData.find(s => s.nama === r.nama);
+                sisa = Math.min(sisa, bahan ? Math.floor(bahan.stok / r.qty) : 0);
+            });
+            return sisa === Infinity ? 0 : sisa;
+        }
+
+        function updateHargaInfo() {
+            const id = document.getElementById('selectProduk').value;
+            const item = catalogData.find(m => String(m.id) === id);
+            document.getElementById('hargaDisplay').value = item ? item.hargaJual.toLocaleString() : '';
+        }
+
+        function addToCart() {
+            const id = document.getElementById('selectProduk').value;
+            const qty = parseInt(document.getElementById('inputQty').value);
+            if(!id) return;
+            const item = catalogData.find(m => String(m.id) === id);
+            cart.push({ ...item, qty, cartId: Date.now() });
+            renderCart();
+        }
+
+        function renderCart() {
+            const cont = document.getElementById('cartItems');
+            document.getElementById('cartSection').classList.toggle('hidden', cart.length === 0);
+            cont.innerHTML = cart.map(item => `
+                <div class="flex justify-between items-center bg-white/10 p-4 rounded-2xl border border-white/5">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-black">${item.nama}</span>
+                        <span class="text-[10px] text-emerald-100">${item.qty} x Rp ${item.hargaJual.toLocaleString()}</span>
+                    </div>
+                    <button onclick="removeFromCart(${item.cartId})" class="p-2 hover:bg-rose-500 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4 text-white"></i></button>
+                </div>
+            `).join('');
+            document.getElementById('cartTotal').innerText = `Rp ${cart.reduce((a,b) => a+(b.hargaJual*b.qty),0).toLocaleString()}`;
+            lucide.createIcons();
+        }
+
+        function removeFromCart(id) { cart = cart.filter(c => c.cartId !== id); renderCart(); }
+
+        function submitTransaksi() {
+            if(cart.length === 0) return;
+            cart.forEach(c => c.resep.forEach(r => {
+                const bahan = stockData.find(s => s.nama === r.nama);
+                if(bahan) bahan.stok -= (r.qty * c.qty);
+            }));
+            transaksiHistory.unshift({
+                id: Date.now(),
+                waktuFull: new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()),
+                items: cart, 
+                total: cart.reduce((a,b) => a+(b.hargaJual*b.qty),0), 
+                metode: selectedMetode
+            });
+            saveAndRefresh(); cart = []; renderCart();
+            showModal("Berhasil!", "Pembayaran diproses & stok diperbarui.", "emerald");
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('StokEs', JSON.stringify(stockData));
+            localStorage.setItem('TransaksiTeh', JSON.stringify(transaksiHistory));
+            renderTransactions(); populateMenuFromCatalog();
+        }
+
+        function renderTransactions() {
+            const body = document.getElementById('transTableBody');
+            body.innerHTML = '';
+            let tTunai = 0, tQRIS = 0;
+            transaksiHistory.forEach((t, i) => {
+                if(t.metode === 'TUNAI') tTunai += t.total; else tQRIS += t.total;
+                if(i < 8) {
+                    body.innerHTML += `<tr class="hover:bg-slate-50 transition-all">
+                        <td class="px-6 py-4 font-bold text-slate-700 text-xs">${t.waktuFull}</td>
+                        <td class="px-6 py-4">
+                            <span class="font-black text-slate-900 text-xs">Rp ${t.total.toLocaleString()}</span> 
+                            <span class="text-[8px] ${t.metode === 'TUNAI' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'} px-2 py-0.5 rounded-md ml-1 font-black">${t.metode}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right"><button onclick="printTrans(${t.id})"><i data-lucide="printer" class="w-4 h-4 text-slate-300 hover:text-emerald-500 transition-all"></i></button></td>
+                    </tr>`;
+                }
+            });
+            document.getElementById('summaryTunai').innerText = `Rp ${tTunai.toLocaleString()}`;
+            document.getElementById('summaryQRIS').innerText = `Rp ${tQRIS.toLocaleString()}`;
+            document.getElementById('summaryTotal').innerText = `Rp ${(tTunai + tQRIS).toLocaleString()}`;
+            lucide.createIcons();
+        }
+
+        // PERBAIKAN LOGO: EXPORT (Upload/Kirim Keluar), IMPORT (Download/Ambil Masuk)
+        function exportData() {
+            const dataStr = JSON.stringify(transaksiHistory, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `Backup_Transaksi_TehJumbo.json`;
+            a.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedTrans = JSON.parse(e.target.result);
+                    importedTrans.forEach(trans => trans.items.forEach(item => {
+                        item.resep.forEach(r => {
+                            const bahan = stockData.find(s => s.nama === r.nama);
+                            if(bahan) bahan.stok -= (r.qty * item.qty);
+                        });
+                    }));
+                    transaksiHistory = Array.from(new Set([...importedTrans, ...transaksiHistory].map(a => a.id))).map(id => [...importedTrans, ...transaksiHistory].find(a => a.id === id));
+                    saveAndRefresh();
+                    showModal("Import Sukses!", "Data sinkron & stok bahan otomatis dikurangi.", "emerald");
+                } catch (err) { showModal("Gagal!", "Format file tidak dikenali.", "rose"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function showModal(title, desc, color) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            document.getElementById('successModal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('successModal').classList.add('hidden'); }
+
+        function printTrans(id) {
+            const t = transaksiHistory.find(x => x.id === id);
+            if(!t) return;
+            document.getElementById('receiptFullTime').innerText = t.waktuFull;
+            document.getElementById('receiptTotal').innerText = `Rp ${t.total.toLocaleString()}`;
+            document.getElementById('receiptItems').innerHTML = t.items.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${i.qty}x ${i.nama}</span><span>${(i.qty*i.hargaJual).toLocaleString()}</span></div>`).join('');
+            window.print();
+        }
+
+        function clearHistory() { if(confirm('Hapus semua riwayat transaksi?')) { transaksiHistory = []; localStorage.setItem('TransaksiTeh', '[]'); renderTransactions(); } }
+    </script>
+</body>
+</html>
