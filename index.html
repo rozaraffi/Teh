@@ -11,7 +11,7 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background: radial-gradient(circle at top right, #f1f5f9, #f8fafc);
-            min-height: screen;
+            min-height: 100vh;
         }
         .glass-card {
             background: rgba(255, 255, 255, 0.8);
@@ -26,9 +26,10 @@
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade { animation: fadeIn 0.6s ease-out forwards; }
-        
         .toast-enter { transform: translateX(100%); opacity: 0; }
         .toast-active { transform: translateX(0); opacity: 1; transition: all 0.3s ease; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; backdrop-filter: blur(4px); overflow-y: auto;}
+        .modal.active { display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body class="p-6 md:p-12">
@@ -38,129 +39,177 @@
         <span id="toastMsg" class="text-sm font-bold"></span>
     </div>
 
-    <div class="max-w-6xl mx-auto space-y-12">
-        <header class="flex flex-col md:flex-row justify-between items-center gap-6 animate-fade" style="animation-delay: 0.1s;">
-            <div class="text-center md:text-left">
-                <div class="flex items-center justify-center md:justify-start gap-3 mb-2">
-                    <input type="text" id="storeName" onchange="saveInfo()" class="bg-transparent border-none text-4xl font-black text-slate-900 focus:ring-0 w-auto italic uppercase p-0" value="TEH JUMBO">
-                    <div class="bg-emerald-500 w-2 h-2 rounded-full animate-pulse"></div>
-                </div>
-                <input type="text" id="storeAddr" onchange="saveInfo()" class="bg-transparent border-none text-slate-400 text-sm font-medium focus:ring-0 w-full md:w-[400px] p-0" value="Jl. Pahlawan, Madiun, Jawa Timur">
+    <div id="settingsModal" class="modal p-6">
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-fade my-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-slate-800">Pengaturan Toko</h2>
+                <button onclick="toggleModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
             </div>
-            <div class="text-center md:text-right">
-                <h3 id="liveClock" class="text-2xl font-black text-slate-800 tracking-tighter">00:00:00</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nama Toko</label>
+                    <input type="text" id="editStoreName" class="w-full mt-1 bg-slate-100 border-none rounded-xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Alamat Toko</label>
+                    <textarea id="editStoreAddr" rows="2" class="w-full mt-1 bg-slate-100 border-none rounded-xl p-4 focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700"></textarea>
+                </div>
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Sosial Media</label>
+                    <div id="sosmedContainer" class="space-y-3"></div>
+                    <button onclick="addSosmedField()" class="w-full mt-3 border-2 border-dashed border-slate-200 py-2 rounded-xl text-slate-400 hover:text-emerald-500 hover:border-emerald-500 transition-all font-bold text-sm">
+                        + Tambah Sosial Media
+                    </button>
+                </div>
+
+                <button onclick="saveSettings()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-emerald-600 transition-colors mt-4">
+                    Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto space-y-12">
+        <header class="flex flex-col md:flex-row justify-between items-center gap-8 animate-fade">
+            <div class="text-center md:text-left flex-1 px-2">
+                <div class="flex items-center justify-center md:justify-start gap-4 mb-3">
+                    <h1 id="displayStoreName" class="text-4xl md:text-5xl font-black text-slate-900 italic uppercase tracking-tight">TEH JUMBO</h1>
+                    <button onclick="toggleModal()" class="p-2 bg-white rounded-full shadow-sm border border-slate-100 hover:bg-slate-50 transition-all">
+                        <i data-lucide="settings" class="w-5 h-5 text-slate-400"></i>
+                    </button>
+                </div>
+                <div class="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-emerald-500 w-2 h-2 rounded-full animate-pulse shrink-0"></div>
+                        <p id="displayStoreAddr" class="text-slate-500 text-sm md:text-base font-medium">Jl. Pahlawan, Madiun</p>
+                    </div>
+                    <div id="displaySosmed" class="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-2 text-slate-400"></div>
+                </div>
+            </div>
+            
+            <div class="text-center md:text-right shrink-0">
+                <h3 id="liveClock" class="text-3xl font-black text-slate-800 tracking-tighter">00:00:00</h3>
                 <p id="liveDate" class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1"></p>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade" style="animation-delay: 0.2s;">
-            <a href="kasir.html" onclick="notify('Membuka Terminal Kasir...')" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade">
+            <a href="kasir.html" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden cursor-pointer">
                 <div class="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
-                <div class="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-200">
-                    <i data-lucide="monitor" class="w-8 h-8"></i>
-                </div>
+                <div class="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-200"><i data-lucide="monitor" class="w-8 h-8"></i></div>
                 <h3 class="text-2xl font-black text-slate-800 mb-2">Terminal Kasir</h3>
-                <p class="text-slate-500 text-sm font-medium leading-relaxed">Input transaksi penjualan cepat dengan cetak struk thermal.</p>
-                <div class="mt-6 flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                    Buka Kasir <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </div>
+                <p class="text-slate-500 text-sm font-medium">Input transaksi penjualan.</p>
             </a>
 
-            <a href="stok.html" onclick="notify('Mengecek Gudang Stok...')" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden">
-                <div class="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
-                <div class="w-16 h-16 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200">
-                    <i data-lucide="package" class="w-8 h-8"></i>
-                </div>
-                <h3 class="text-2xl font-black text-slate-800 mb-2">Manajemen Stok</h3>
-                <p class="text-slate-500 text-sm font-medium leading-relaxed">Kelola bahan baku dan pantau sisa stok secara real-time.</p>
-                <div class="mt-6 flex items-center gap-2 text-blue-600 font-bold text-sm">
-                    Kelola Stok <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </div>
-            </a>
-
-            <a href="katalog.html" onclick="notify('Membuka Pengaturan Menu...')" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden">
+            <a href="katalog.html" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden cursor-pointer">
                 <div class="absolute -right-4 -top-4 w-32 h-32 bg-violet-500/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
-                <div class="w-16 h-16 bg-violet-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-violet-200">
-                    <i data-lucide="book-open" class="w-8 h-8"></i>
-                </div>
+                <div class="w-16 h-16 bg-violet-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-violet-200"><i data-lucide="book-open" class="w-8 h-8"></i></div>
                 <h3 class="text-2xl font-black text-slate-800 mb-2">Katalog Menu</h3>
-                <p class="text-slate-500 text-sm font-medium leading-relaxed">Atur daftar harga dan resep bahan untuk setiap varian menu.</p>
-                <div class="mt-6 flex items-center gap-2 text-violet-600 font-bold text-sm">
-                    Lihat Katalog <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </div>
+                <p class="text-slate-500 text-sm font-medium">Atur daftar harga dan bahan.</p>
+            </a>
+
+            <a href="stok.html" class="glass-card p-8 rounded-[2.5rem] group relative overflow-hidden cursor-pointer">
+                <div class="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/5 rounded-full group-hover:scale-150 transition-all duration-700"></div>
+                <div class="w-16 h-16 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200"><i data-lucide="package" class="w-8 h-8"></i></div>
+                <h3 class="text-2xl font-black text-slate-800 mb-2">Manajemen Stok</h3>
+                <p class="text-slate-500 text-sm font-medium">Kelola bahan baku & real-time.</p>
             </a>
         </div>
-
-        <section class="animate-fade" style="animation-delay: 0.3s;">
-            <div class="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-slate-200">
-                <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-12 divide-y md:divide-y-0 md:divide-x divide-slate-800">
-                    <div class="text-center md:text-left">
-                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Status Operasional</p>
-                        <div class="flex items-center justify-center md:justify-start gap-3">
-                            <span class="w-3 h-3 bg-emerald-500 rounded-full"></span>
-                            <h4 class="text-xl font-bold">Bisnis Aktif</h4>
-                        </div>
-                    </div>
-                    <div class="text-center md:px-12">
-                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Total Transaksi</p>
-                        <h4 id="summaryCount" class="text-3xl font-black italic">0</h4>
-                    </div>
-                    <div class="text-center md:pl-12">
-                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Sistem</p>
-                        <h4 class="text-xl font-bold">Cloud V.3.0</h4>
-                    </div>
-                </div>
-                <div class="absolute -bottom-10 -right-5 text-[150px] font-black text-white/[0.03] italic pointer-events-none select-none">
-                    TEH
-                </div>
-            </div>
-        </section>
     </div>
 
     <script>
-        // Inisialisasi Lucide Icons
         lucide.createIcons();
+        const CONFIG_KEY = 'tehJumboConfig';
 
-        // Load Informasi Toko dari LocalStorage
         window.onload = () => {
-            const savedName = localStorage.getItem('storeName');
-            const savedAddr = localStorage.getItem('storeAddr');
-            const history = JSON.parse(localStorage.getItem('TransaksiTeh')) || [];
-            
-            if(savedName) document.getElementById('storeName').value = savedName;
-            if(savedAddr) document.getElementById('storeAddr').value = savedAddr;
-            
-            document.getElementById('summaryCount').innerText = history.length;
-            
-            updateTime();
+            updateDashboard();
             setInterval(updateTime, 1000);
-            notify("Selamat Datang Kembali!");
+            updateTime();
         };
 
-        // Simpan Perubahan Nama/Alamat Toko
-        function saveInfo() {
-            localStorage.setItem('storeName', document.getElementById('storeName').value);
-            localStorage.setItem('storeAddr', document.getElementById('storeAddr').value);
-            notify("Profil Toko Diperbarui!");
+        function updateDashboard() {
+            const config = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+            
+            document.getElementById('displayStoreName').innerText = config.name || "TEH JUMBO";
+            document.getElementById('displayStoreAddr').innerText = config.addr || "Jl. Pahlawan, Madiun";
+            
+            const sosmed = config.sosmed || [];
+            const displaySosmed = document.getElementById('displaySosmed');
+            displaySosmed.innerHTML = sosmed.map(s => {
+                const platformName = s.icon === 'globe' ? 'Website' : s.icon.charAt(0).toUpperCase() + s.icon.slice(1);
+                return `
+                    <div class="text-xs font-bold text-slate-400">
+                        ${platformName}: <span class="text-slate-600">${s.handle}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Live Clock
+        function toggleModal() {
+            const modal = document.getElementById('settingsModal');
+            if (!modal.classList.contains('active')) {
+                const config = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+                document.getElementById('editStoreName').value = config.name || "";
+                document.getElementById('editStoreAddr').value = config.addr || "";
+                
+                const savedSosmed = config.sosmed || [];
+                const container = document.getElementById('sosmedContainer');
+                container.innerHTML = '';
+                savedSosmed.forEach(item => addSosmedField(item.icon, item.handle));
+            }
+            modal.classList.toggle('active');
+        }
+
+        function addSosmedField(platform = 'instagram', handle = '') {
+            const container = document.getElementById('sosmedContainer');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center';
+            div.innerHTML = `
+                <select class="bg-slate-100 p-3 rounded-xl text-sm font-bold border-none">
+                    <option value="instagram" ${platform === 'instagram' ? 'selected' : ''}>Instagram</option>
+                    <option value="facebook" ${platform === 'facebook' ? 'selected' : ''}>Facebook</option>
+                    <option value="twitter" ${platform === 'twitter' ? 'selected' : ''}>Twitter</option>
+                    <option value="tiktok" ${platform === 'tiktok' ? 'selected' : ''}>TikTok</option>
+                    <option value="globe" ${platform === 'globe' ? 'selected' : ''}>Website</option>
+                </select>
+                <input type="text" placeholder="@username" value="${handle}" class="flex-1 bg-slate-100 p-3 rounded-xl font-medium text-slate-700">
+                <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function saveSettings() {
+            const name = document.getElementById('editStoreName').value;
+            const addr = document.getElementById('editStoreAddr').value;
+            const sosmedRows = document.querySelectorAll('#sosmedContainer > div');
+            const sosmedData = Array.from(sosmedRows).map(row => ({
+                icon: row.querySelector('select').value,
+                handle: row.querySelector('input').value
+            }));
+
+            // Save to one key
+            localStorage.setItem(CONFIG_KEY, JSON.stringify({ name, addr, sosmed: sosmedData }));
+
+            updateDashboard();
+            toggleModal();
+            notify("Data Toko Tersimpan!");
+        }
+
         function updateTime() {
             const now = new Date();
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            
             document.getElementById('liveClock').innerText = now.toLocaleTimeString('id-ID');
             document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', options);
         }
 
-        // Custom Notification (Toast)
         function notify(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toastMsg').innerText = msg;
-            
             toast.classList.add('toast-active');
             toast.classList.remove('toast-enter');
-            
             setTimeout(() => {
                 toast.classList.remove('toast-active');
                 toast.classList.add('toast-enter');
